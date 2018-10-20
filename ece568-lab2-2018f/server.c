@@ -8,13 +8,20 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 
+#include "sslsetup.h"
+
 #define PORT 8765
+#define SERVER_CIPHER_LIST "SSLv2:SSLv3:TLSv1"
+#define BUFSIZE 256
 
 /* use these strings to tell the marker what is happening */
 #define FMT_ACCEPT_ERR "ECE568-SERVER: SSL accept error\n"
 #define FMT_CLIENT_INFO "ECE568-SERVER: %s %s\n"
 #define FMT_OUTPUT "ECE568-SERVER: %s %s\n"
 #define FMT_INCOMPLETE_CLOSE "ECE568-SERVER: Incomplete shutdown\n"
+
+void server_check_cert(SSL *ssl, char *host);
+void server_request(SSL *ssl, char *request, char *response);
 
 int main(int argc, char **argv)
 {
@@ -64,7 +71,18 @@ int main(int argc, char **argv)
     close(sock);
     exit (0);
   } 
-  
+    
+    SSL *ssl;
+    SSL_CTX *ctx;
+    BIO *sbio;
+
+    ctx = initialize_ctx(SERVER_KEYFILE, PASSWORD);
+    SSL_CTX_set_verify(ctx, SSL_VERIFY_PEER|SSL_VERIFY_FAIL_IF_NO_PEER_CERT, NULL);
+    if (!SSL_CTX_set_cipher_list(ctx, SERVER_CIPHER_LIST)){
+        printf("Failed to set cipher list\n");
+        exit(1);
+    }
+
   while(1){
     
     if((s=accept(sock, NULL, 0))<0){
@@ -75,7 +93,7 @@ int main(int argc, char **argv)
     }
     
     /*fork a child to handle the connection*/
-    
+  
     if((pid=fork())){
       close(s);
     }
@@ -85,16 +103,81 @@ int main(int argc, char **argv)
       char buf[256];
       char *answer = "42";
 
-      len = recv(s, &buf, 255, 0);
-      buf[len]= '\0';
+      ssl = SSL_new(ctx);
+      sbio = BIO_new_socket(sock, BIO_NOCLOSE);
+      SSL_set_bio(ssl, sbio, sbio);
+
+      if(SSL_connect(ssl) <= 0) {
+          berr_exit(FMT_ACCEPT_ERR);
+      }
+      
+      server_check_cert(ssl, HOST);
+
+      server_request(ssl, buf);
       printf(FMT_OUTPUT, buf, answer);
-      send(s, answer, strlen(answer), 0);
+      server_response(ssl, answer);
+
       close(sock);
       close(s);
       return 0;
     }
   }
-  
+  destroy_ctx(ctx);
   close(sock);
   return 1;
+}
+
+void server_check_cert(SSL *ssl, char *host){
+    X509 *peer;
+    char peer_CN[256];
+    char peer_email[256];
+
+    if (SSL_get_verify_result(ssl) != X509_V_OK)
+        berr_exit(FMT_NO_VERIFY);
+    
+    peer = SSL_get_peer_certificate(ssl);
+    X509_NAME_get_text_byNID(X509_get_subject_name(peer), NID_commonName, peer_CN, 256);
+    X509_NAME_get_text_byNID(X509_get_subject_name(peer), NID_pkcs9_emailAddress, peer_email, 256);
+
+    printf(FMT_CLIENT_INFO, peer_CN, peer_email);
+}
+
+void server_request(SSL *ssl, char *request){
+    int r; 
+
+    r = SSL_read(ssl, buf, BUFSIZE);
+    switch(SSL_get_error(ssl,r)){
+    case SSL_ERROR_NONE:
+        break;
+    case SSL_ERROR_ZERO_RETURN:
+        r = SSL_shutdown(ssl);
+        switch(r){
+            case 1;
+                break;
+            default:
+                berr_exit("SSL shutdown failed");
+        }
+    case SSL_ERROR_SYSCALL:
+        berr_exit(FMT_INCOMPLETE_CLOSE);
+    default:
+        berr_exit("SSL read problem");
+    }
+}
+
+void server_response(SSL *ssl, char *response){
+    int response_len;
+    int r;
+    response_len = strlen(response);
+
+    r = SSL_write(ssl, response, response_len);
+    switch(SSL_get_error(ssl,r)){      
+        case SSL_ERROR_NONE:
+            if(request_len!=r)
+                err_exit("Incomplete write!");
+            break;
+        case SSL_ERROR_SYSCALL:
+            berr_exit(FMT_INCORRECT_CLOSE);
+        default:
+            berr_exit("SSL write problem");
+    }
 }

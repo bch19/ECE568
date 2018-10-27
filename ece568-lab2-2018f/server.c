@@ -8,7 +8,9 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 
-#include "sslsetup.h"
+#include <openssl/ssl.h>
+#include <openssl/err.h>
+#include "sslsetup.c"
 
 #define PORT 8765
 #define SERVER_CIPHER_LIST "SSLv2:SSLv3:TLSv1"
@@ -20,8 +22,9 @@
 #define FMT_OUTPUT "ECE568-SERVER: %s %s\n"
 #define FMT_INCOMPLETE_CLOSE "ECE568-SERVER: Incomplete shutdown\n"
 
-void server_check_cert(SSL *ssl, char *host);
-void server_request(SSL *ssl, char *request, char *response);
+void server_check_cert(SSL *ssl);
+void server_request(SSL *ssl, char *request);
+void server_respond(SSL *ssl, char *response);
 
 int main(int argc, char **argv)
 {
@@ -76,7 +79,7 @@ int main(int argc, char **argv)
     SSL_CTX *ctx;
     BIO *sbio;
 
-    ctx = initialize_ctx(SERVER_KEYFILE, PASSWORD);
+    ctx = initialize_ctx(SERVER_KEYFILE, PASSWORD, SERVER);
     SSL_CTX_set_verify(ctx, SSL_VERIFY_PEER|SSL_VERIFY_FAIL_IF_NO_PEER_CERT, NULL);
     if (!SSL_CTX_set_cipher_list(ctx, SERVER_CIPHER_LIST)){
         printf("Failed to set cipher list\n");
@@ -99,7 +102,6 @@ int main(int argc, char **argv)
     }
     else {
       /*Child code*/
-      int len;
       char buf[256];
       char *answer = "42";
 
@@ -107,15 +109,54 @@ int main(int argc, char **argv)
       sbio = BIO_new_socket(sock, BIO_NOCLOSE);
       SSL_set_bio(ssl, sbio, sbio);
 
+      /*
       if(SSL_connect(ssl) <= 0) {
           berr_exit(FMT_ACCEPT_ERR);
       }
+      */
+
+      int err = SSL_connect(ssl);
+      if (err <=0)
+      {
+          int errcode = SSL_get_error(ssl, err);
+          switch(errcode)
+          {
+              case SSL_ERROR_NONE: 
+                  fprintf(stderr,"uhoh spaghetti-os");
+                  break;        // Cannot happen if err <=0
+              case SSL_ERROR_ZERO_RETURN: 
+                  fprintf(stderr,"SSL connect returned 0.");
+                  break;
+              case SSL_ERROR_WANT_READ: 
+                  fprintf(stderr,"SSL connect: Read Error.");
+                  break;
+              case SSL_ERROR_WANT_WRITE: 
+                  fprintf(stderr,"SSL connect: Write Error.");
+                  break;
+              case SSL_ERROR_WANT_CONNECT: 
+                  fprintf(stderr,"SSL connect: Error connect."); 
+                  break;
+              case SSL_ERROR_WANT_ACCEPT: 
+                  fprintf(stderr,"SSL connect: Error accept."); 
+                  break;
+              case SSL_ERROR_WANT_X509_LOOKUP: 
+                  fprintf(stderr,"SSL connect error: X509 lookup."); 
+                  break;
+              case SSL_ERROR_SYSCALL: 
+                  fprintf(stderr,"SSL connect: Error in system call."); 
+                  break;
+              case SSL_ERROR_SSL: 
+                  fprintf(stderr,"SSL connect: Protocol Error.");
+                  break;
+              default: fprintf(stderr,"Failed SSL connect.");
+          }
+      }
       
-      server_check_cert(ssl, HOST);
+      server_check_cert(ssl);
 
       server_request(ssl, buf);
       printf(FMT_OUTPUT, buf, answer);
-      server_response(ssl, answer);
+      server_respond(ssl, answer);
 
       close(sock);
       close(s);
@@ -127,17 +168,26 @@ int main(int argc, char **argv)
   return 1;
 }
 
-void server_check_cert(SSL *ssl, char *host){
+void server_check_cert(SSL *ssl){
     X509 *peer;
     char peer_CN[256];
     char peer_email[256];
 
-    if (SSL_get_verify_result(ssl) != X509_V_OK)
-        berr_exit(FMT_NO_VERIFY);
-    
+    if (SSL_get_verify_result(ssl) != X509_V_OK){
+        char *resp = (char*)malloc(200 * sizeof(char));
+        sprintf(resp, "ECE568-SERVER: SSL accept error\n %d:error:140890B2:SSL\n routines:SSL3_GET_CLIENT_CERTIFICATE: no\n certificate returned:s3_srvr.c:2490:", getpid());
+        berr_exit(resp);
+    }
+
     peer = SSL_get_peer_certificate(ssl);
-    X509_NAME_get_text_byNID(X509_get_subject_name(peer), NID_commonName, peer_CN, 256);
-    X509_NAME_get_text_byNID(X509_get_subject_name(peer), NID_pkcs9_emailAddress, peer_email, 256);
+    if (peer == NULL){
+        char *resp = (char*)malloc(200 * sizeof(char));
+        sprintf(resp, "ECE568-SERVER: SSL accept error\n %d:error:140890C7:SSL\n routines:SSL3_GET_CLIENT_CERTIFICATE: no\n peer did not return a certificate:s3_srvr.c:2490:", getpid());
+        berr_exit(resp);
+    }
+
+    X509_NAME_get_text_by_NID(X509_get_subject_name(peer), NID_commonName, peer_CN, 256);
+    X509_NAME_get_text_by_NID(X509_get_subject_name(peer), NID_pkcs9_emailAddress, peer_email, 256);
 
     printf(FMT_CLIENT_INFO, peer_CN, peer_email);
 }
@@ -145,14 +195,14 @@ void server_check_cert(SSL *ssl, char *host){
 void server_request(SSL *ssl, char *request){
     int r; 
 
-    r = SSL_read(ssl, buf, BUFSIZE);
+    r = SSL_read(ssl, request, BUFSIZE);
     switch(SSL_get_error(ssl,r)){
     case SSL_ERROR_NONE:
         break;
     case SSL_ERROR_ZERO_RETURN:
         r = SSL_shutdown(ssl);
         switch(r){
-            case 1;
+            case 1:
                 break;
             default:
                 berr_exit("SSL shutdown failed");
@@ -164,7 +214,7 @@ void server_request(SSL *ssl, char *request){
     }
 }
 
-void server_response(SSL *ssl, char *response){
+void server_respond(SSL *ssl, char *response){
     int response_len;
     int r;
     response_len = strlen(response);
@@ -172,11 +222,9 @@ void server_response(SSL *ssl, char *response){
     r = SSL_write(ssl, response, response_len);
     switch(SSL_get_error(ssl,r)){      
         case SSL_ERROR_NONE:
-            if(request_len!=r)
-                err_exit("Incomplete write!");
+            if(response_len!=r)
+                berr_exit("Incomplete write!");
             break;
-        case SSL_ERROR_SYSCALL:
-            berr_exit(FMT_INCORRECT_CLOSE);
         default:
             berr_exit("SSL write problem");
     }

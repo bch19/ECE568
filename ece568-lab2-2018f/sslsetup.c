@@ -1,3 +1,5 @@
+#include <openssl/ssl.h>
+#include <openssl/err.h>
 #include "sslsetup.h"
 
 
@@ -27,9 +29,7 @@ static void sigpipe_handle(int x){
 }
 
 
-SSL_CTX *initialize_ctx(keyfile, password) {
-
-    SSL_METHOD *meth;
+SSL_CTX *initialize_ctx(char* keyfile, char* password, int type) {
     SSL_CTX *ctx;
 
     if (!bio_err) {
@@ -45,8 +45,14 @@ SSL_CTX *initialize_ctx(keyfile, password) {
     signal(SIGPIPE, sigpipe_handle);
 
     /* Create context */
-    meth = SSL_v23_method();
-    ctx = SSL_CTX_new(meth);
+    switch(type){      
+        case CLIENT:
+            ctx = SSL_CTX_new(SSLv3_client_method());
+        case SERVER:
+            ctx = SSL_CTX_new(SSLv23_server_method());
+        default:
+            ctx = SSL_CTX_new(SSLv23_method());
+    }
 
     /* Load our keys and certificates */
     if (!(SSL_CTX_use_certificate_chain_file(ctx, keyfile))){

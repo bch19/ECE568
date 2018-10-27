@@ -8,12 +8,16 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 
-#include "sslsetup.h"
+#include <openssl/ssl.h>
+#include <openssl/err.h>
+#include "sslsetup.c"
 
 #define HOST "localhost"
 #define PORT 8765
 #define BUFSIZE 256
 #define CLIENT_CIPHER_LIST "SHA1"
+#define HOSTCN "Bob's Server"
+#define HOSTEMAIL "ece568bob@ecf.utoronto.ca"
 static int require_server_auth = 1;
 
 /* use these strings to tell the marker what is happening */
@@ -25,12 +29,12 @@ static int require_server_auth = 1;
 #define FMT_NO_VERIFY "ECE568-CLIENT: Certificate does not verify\n"
 #define FMT_INCORRECT_CLOSE "ECE568-CLIENT: Premature close\n"
 
-void client_check_cert(SSL *ssl, char *host);
+void client_check_cert(SSL *ssl);
 void client_request_response(SSL *ssl, char *request, char *response);
 
 int main(int argc, char **argv)
 {
-  int len, sock, port=PORT;
+  int sock, port=PORT;
   char *host=HOST;
   struct sockaddr_in addr;
   struct hostent *host_entry;
@@ -82,7 +86,7 @@ int main(int argc, char **argv)
   SSL_CTX *ctx;
   BIO *sbio;
 
-  ctx = initialize_ctx(CLIENT_KEYFILE, PASSWORD);
+  ctx = initialize_ctx(CLIENT_KEYFILE, PASSWORD, CLIENT);
   if (!SSL_CTX_set_cipher_list(ctx, CLIENT_CIPHER_LIST)){
       printf("Cipher set failed");
       exit(1);
@@ -90,6 +94,13 @@ int main(int argc, char **argv)
 
   ssl = SSL_new(ctx);
   sbio = BIO_new_socket(sock, BIO_NOCLOSE);
+  //TODO check for SHA1 only
+  /*
+  ECE568-SERVER: SSL accept error 
+  <processPID>:error:140890B2:SSL 
+  routines:SSL3_GET_CLIENT_CERTIFICATE: no 
+  certificate returned:s3_srvr.c:2490:
+  */
   SSL_set_bio(ssl, sbio, sbio);
 
   if (SSL_connect(ssl) <=0){
@@ -97,7 +108,7 @@ int main(int argc, char **argv)
   }
 
   if (require_server_auth){
-      check_cert(ssl, HOST);
+      client_check_cert(ssl);
   }
 
   client_request_response(ssl, secret, buf);
@@ -110,23 +121,27 @@ int main(int argc, char **argv)
 }
 
 
-void client_check_cert(SSL *ssl, char *host){
+void client_check_cert(SSL *ssl){
     X509 *peer;
     char peer_CN[256];
     char peer_email[256];
     char issuer_CN[256];
-
+    
     if (SSL_get_verify_result(ssl) != X509_V_OK)
         berr_exit(FMT_NO_VERIFY);
     
     peer = SSL_get_peer_certificate(ssl);
-    X509_NAME_get_text_byNID(X509_get_subject_name(peer), NID_commonName, peer_CN, 256);
-    if (strcasecmp(peer_CN, host)) berr_exit(FMT_CN_MISMATCH);
+    if (peer == NULL){
+      //error
+    }
 
-    X509_NAME_get_text_byNID(X509_get_subject_name(peer), NID_pkcs9_emailAddress, peer_email, 256);
-    if (strcasecmp(peer_email, email)) berr_exit(FMT_EMAIL_MISMATCH);
+    X509_NAME_get_text_by_NID(X509_get_subject_name(peer), NID_commonName, peer_CN, 256);
+    if (strcasecmp(peer_CN, HOSTCN)) berr_exit(FMT_CN_MISMATCH);
 
-    X509_NAME_get_text_byNID(X509_get_issuer_name(peer), NID_pkcs9_emailAddress, issuer_CN, 256);
+    X509_NAME_get_text_by_NID(X509_get_subject_name(peer), NID_pkcs9_emailAddress, peer_email, 256);
+    if (strcasecmp(peer_email, HOSTEMAIL)) berr_exit(FMT_EMAIL_MISMATCH);
+
+    X509_NAME_get_text_by_NID(X509_get_issuer_name(peer), NID_pkcs9_emailAddress, issuer_CN, 256);
 
     printf(FMT_SERVER_INFO, peer_CN, peer_email, issuer_CN);
 }
@@ -142,7 +157,7 @@ void client_request_response(SSL *ssl, char *request, char *response){
     switch(SSL_get_error(ssl,r)){      
         case SSL_ERROR_NONE:
             if(request_len!=r)
-                err_exit("Incomplete write!");
+                berr_exit("Incomplete write!");
             break;
         default:
             berr_exit("SSL write problem");
@@ -156,7 +171,7 @@ void client_request_response(SSL *ssl, char *request, char *response){
             case SSL_ERROR_ZERO_RETURN:
                 r = SSL_shutdown(ssl);
                 switch(r){
-                    case 1;
+                    case 1:
                         break;
                     default:
                         berr_exit("SSL shutdown failed");

@@ -35,6 +35,7 @@ SSL_CTX *initialize_ctx(char* keyfile, char* password, int type) {
     if (!bio_err) {
         /* Global system initialization */
         SSL_library_init();
+        OpenSSL_add_ssl_algorithms();
         SSL_load_error_strings();
 
         /* An error write context */
@@ -47,12 +48,15 @@ SSL_CTX *initialize_ctx(char* keyfile, char* password, int type) {
     /* Create context */
     switch(type){      
         case CLIENT:
-            ctx = SSL_CTX_new(SSLv3_client_method());
+            ctx = SSL_CTX_new(SSLv23_client_method());
+            SSL_CTX_set_options(ctx, SSL_OP_NO_SSLv2);
         case SERVER:
             ctx = SSL_CTX_new(SSLv23_server_method());
         default:
             ctx = SSL_CTX_new(SSLv23_method());
     }
+
+    SSL_CTX_set_cipher_list(ctx, "SHA1");
 
     /* Load our keys and certificates */
     if (!(SSL_CTX_use_certificate_chain_file(ctx, keyfile))){

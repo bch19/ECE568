@@ -115,7 +115,8 @@ int main(int argc, char **argv)
       }
       */
 
-      int err = SSL_connect(ssl);
+      int err = SSL_accept(ssl); //SSL_accept() vs ssl_connect()
+      //debug info, can take this out if it works
       if (err <=0)
       {
           int errcode = SSL_get_error(ssl, err);

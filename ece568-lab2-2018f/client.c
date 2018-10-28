@@ -32,6 +32,7 @@ static int require_server_auth = 1;
 void client_check_cert(SSL *ssl);
 void client_request_response(SSL *ssl, char *request, char *response);
 
+
 int main(int argc, char **argv)
 {
   int sock, port=PORT;
@@ -42,7 +43,6 @@ int main(int argc, char **argv)
   char *secret = "What's the question?";
   
   /*Parse command line arguments*/
-  
   switch(argc){
     case 1:
       break;
@@ -83,7 +83,7 @@ int main(int argc, char **argv)
     perror("connect");
   
 
-  /* Set SSL context and BIO */
+  /* Set up SSL context and BIO */
   SSL *ssl;
   SSL_CTX *ctx;
   BIO *sbio;
@@ -100,7 +100,6 @@ int main(int argc, char **argv)
   SSL_set_bio(ssl, sbio, sbio);
 
   if (SSL_connect(ssl) <=0){
-      printf("SSL connection connect err\n");
       berr_exit(FMT_CONNECT_ERR);
   }
 
@@ -109,14 +108,14 @@ int main(int argc, char **argv)
   }
 
   client_request_response(ssl, secret, buf);
-  /* this is how you output something for the marker to pick up */
   printf(FMT_OUTPUT, secret, buf);
-  
+
+  int shutdown_r = SSL_shutdown(ssl);
+
   destroy_ctx(ctx);
   close(sock);
   return 1;
 }
-
 
 void client_check_cert(SSL *ssl){
     X509 *peer;
@@ -150,14 +149,15 @@ void client_request_response(SSL *ssl, char *request, char *response){
   switch(SSL_get_error(ssl,r)){      
     case SSL_ERROR_NONE:
       if(len!=r)
-        berr_exit("Client request: incomplete write!\n");
+        berr_exit("Client SSL incomplete write!\n");
         break;
     default:
-      berr_exit("SSL write problem");
+      berr_exit("Client SSL write problem");
   }
 
   while (1) {
     r = SSL_read(ssl, response, BUFSIZE);
+    response[r]='\0';
     switch(SSL_get_error(ssl,r)){
       case SSL_ERROR_NONE:
         return;
@@ -167,12 +167,12 @@ void client_request_response(SSL *ssl, char *request, char *response){
           case 1:
             break;
           default:
-            berr_exit("SSL shutdown failed");
+            berr_exit("Client SSL shutdown failed");
         }
       case SSL_ERROR_SYSCALL:
         berr_exit(FMT_INCORRECT_CLOSE);
       default:
-          berr_exit("SSL read problem");
+        berr_exit("Clinet SSL read problem");
     }
   }
 }

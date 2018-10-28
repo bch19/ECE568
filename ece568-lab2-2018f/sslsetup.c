@@ -9,8 +9,8 @@ static int password_cb(char *buf,int num, int rwflag, void *userdata);
 static void sigpipe_handle(int x);
 
 int berr_exit(char *string){
-    BIO_printf(bio_err,"%s\n",string);
-    ERR_print_errors(bio_err);
+    printf("%s\n", string);
+    ERR_print_errors_fp(stdout);
     exit(1);
 }
 

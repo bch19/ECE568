@@ -110,7 +110,6 @@ int main(int argc, char **argv)
 
       if (SSL_accept(ssl) <=0)
       {
-        printf("SSL accept err\n");
         berr_exit(FMT_ACCEPT_ERR);
       }
       
@@ -119,6 +118,7 @@ int main(int argc, char **argv)
       // Server request
       int r; 
       r = SSL_read(ssl, buf, BUFSIZE);
+      buf[r]='\0';
       switch(SSL_get_error(ssl,r)){
         case SSL_ERROR_WANT_READ:
           continue;
@@ -136,7 +136,7 @@ int main(int argc, char **argv)
         case SSL_ERROR_SYSCALL:
           berr_exit(FMT_INCOMPLETE_CLOSE);
         default:
-          berr_exit("SSL read problem");
+          berr_exit("Server SSL read problem");
       }
 
       printf(FMT_OUTPUT, buf, answer);
@@ -148,19 +148,23 @@ int main(int argc, char **argv)
       switch(SSL_get_error(ssl,r)){ 
           case SSL_ERROR_NONE:
             if(response_len!=r)
-              berr_exit("Incomplete write!");
+              berr_exit("Server incomplete write!");
             break;
           case SSL_ERROR_SYSCALL:
             berr_exit(FMT_INCOMPLETE_CLOSE);
           default:
-            berr_exit("SSL write problem");
+            berr_exit("Server SSL write problem");
       }
+      
+      // shutdown SSL 
+      int shutdown_r = SSL_shutdown(ssl);
 
       close(sock);
       close(s);
       return 0;
     }
   }
+  // clear SSL context
   destroy_ctx(ctx);
   close(sock);
   return 1;
@@ -172,11 +176,14 @@ void server_check_cert(SSL *ssl){
     char peer_email[256];
 
     if (SSL_get_verify_result(ssl) != X509_V_OK){
-        printf("server check cert\n");
         berr_exit(FMT_ACCEPT_ERR);
     }
 
     peer = SSL_get_peer_certificate(ssl);
+    if (peer == NULL){
+        berr_exit(FMT_ACCEPT_ERR);
+    }
+
     X509_NAME_get_text_by_NID(X509_get_subject_name(peer), NID_commonName, peer_CN, 256);
     X509_NAME_get_text_by_NID(X509_get_subject_name(peer), NID_pkcs9_emailAddress, peer_email, 256);
 

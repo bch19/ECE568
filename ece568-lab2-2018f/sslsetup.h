@@ -22,15 +22,11 @@
 #define SERVER_KEYFILE "bob.pem"
 #define PASSWORD "password"
 
-#define CLIENT 0
-#define SERVER 1
-
-
 extern BIO *bio_err;
 int berr_exit(char *string);
-//int error_exit(char *string);
 
-SSL_CTX *initialize_ctx(char *keyfile, char* pword, int type);
+
+SSL_CTX *initialize_ctx(char *keyfile, char* password);
 void destroy_ctx(SSL_CTX *ctx);
 
 #endif

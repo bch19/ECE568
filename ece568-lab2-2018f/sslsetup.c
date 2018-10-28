@@ -5,7 +5,7 @@
 
 BIO *bio_err = 0;
 static char *pass;
-static int password_cb(char *buf,int num, int rwflag,void *userdata);
+static int password_cb(char *buf,int num, int rwflag, void *userdata);
 static void sigpipe_handle(int x);
 
 int berr_exit(char *string){
@@ -13,7 +13,6 @@ int berr_exit(char *string){
     ERR_print_errors(bio_err);
     exit(1);
 }
-
 
 static int password_cb(char *buf,int num, int rwflag,void *userdata){
     if(num<strlen(pass)+1){
@@ -23,19 +22,18 @@ static int password_cb(char *buf,int num, int rwflag,void *userdata){
     strcpy(buf,pass);
     return(strlen(pass));
 }
-
-
 static void sigpipe_handle(int x){
 }
 
 
-SSL_CTX *initialize_ctx(char* keyfile, char* password, int type) {
+SSL_CTX *initialize_ctx(char *keyfile, char *password) {
+
+    const SSL_METHOD *meth;
     SSL_CTX *ctx;
 
     if (!bio_err) {
         /* Global system initialization */
         SSL_library_init();
-        OpenSSL_add_ssl_algorithms();
         SSL_load_error_strings();
 
         /* An error write context */
@@ -46,17 +44,8 @@ SSL_CTX *initialize_ctx(char* keyfile, char* password, int type) {
     signal(SIGPIPE, sigpipe_handle);
 
     /* Create context */
-    switch(type){      
-        case CLIENT:
-            ctx = SSL_CTX_new(SSLv23_client_method());
-            SSL_CTX_set_options(ctx, SSL_OP_NO_SSLv2);
-        case SERVER:
-            ctx = SSL_CTX_new(SSLv23_server_method());
-        default:
-            ctx = SSL_CTX_new(SSLv23_method());
-    }
-
-    SSL_CTX_set_cipher_list(ctx, "SHA1");
+    meth = SSLv23_method();
+    ctx = SSL_CTX_new(meth);
 
     /* Load our keys and certificates */
     if (!(SSL_CTX_use_certificate_chain_file(ctx, keyfile))){

@@ -82,28 +82,25 @@ int main(int argc, char **argv)
   if(connect(sock,(struct sockaddr *)&addr, sizeof(addr))<0)
     perror("connect");
   
+
+  /* Set SSL context and BIO */
   SSL *ssl;
   SSL_CTX *ctx;
   BIO *sbio;
 
-  ctx = initialize_ctx(CLIENT_KEYFILE, PASSWORD, CLIENT);
+  ctx = initialize_ctx(CLIENT_KEYFILE, PASSWORD);
   if (!SSL_CTX_set_cipher_list(ctx, CLIENT_CIPHER_LIST)){
       printf("Cipher set failed");
       exit(1);
   }
-
+  
+  /* initialize SSL */
   ssl = SSL_new(ctx);
   sbio = BIO_new_socket(sock, BIO_NOCLOSE);
-  //TODO check for SHA1 only
-  /*
-  ECE568-SERVER: SSL accept error 
-  <processPID>:error:140890B2:SSL 
-  routines:SSL3_GET_CLIENT_CERTIFICATE: no 
-  certificate returned:s3_srvr.c:2490:
-  */
   SSL_set_bio(ssl, sbio, sbio);
 
   if (SSL_connect(ssl) <=0){
+      printf("SSL connection connect err\n");
       berr_exit(FMT_CONNECT_ERR);
   }
 
@@ -131,9 +128,6 @@ void client_check_cert(SSL *ssl){
         berr_exit(FMT_NO_VERIFY);
     
     peer = SSL_get_peer_certificate(ssl);
-    if (peer == NULL){
-      //error
-    }
 
     X509_NAME_get_text_by_NID(X509_get_subject_name(peer), NID_commonName, peer_CN, 256);
     if (strcasecmp(peer_CN, HOSTCN)) berr_exit(FMT_CN_MISMATCH);
@@ -148,39 +142,37 @@ void client_check_cert(SSL *ssl){
 
 
 void client_request_response(SSL *ssl, char *request, char *response){
-    int request_len;
-    int r;
+  int len, r;
 
-    request_len = strlen(request);
+  len = strlen(request);
 
-    r = SSL_write(ssl, request, request_len);
-    switch(SSL_get_error(ssl,r)){      
-        case SSL_ERROR_NONE:
-            if(request_len!=r)
-                berr_exit("Incomplete write!");
-            break;
-        default:
-            berr_exit("SSL write problem");
-    }
-
-    while (1) {
-        r = SSL_read(ssl, response, BUFSIZE);
-        switch(SSL_get_error(ssl,r)){
-            case SSL_ERROR_NONE:
-                break;
-            case SSL_ERROR_ZERO_RETURN:
-                r = SSL_shutdown(ssl);
-                switch(r){
-                    case 1:
-                        break;
-                    default:
-                        berr_exit("SSL shutdown failed");
-                }
-            case SSL_ERROR_SYSCALL:
-                berr_exit(FMT_INCORRECT_CLOSE);
-            default:
-                berr_exit("SSL read problem");
-        }
+  r = SSL_write(ssl, request, len);
+  switch(SSL_get_error(ssl,r)){      
+    case SSL_ERROR_NONE:
+      if(len!=r)
+        berr_exit("Client request: incomplete write!\n");
+        break;
+    default:
+      berr_exit("SSL write problem");
   }
 
+  while (1) {
+    r = SSL_read(ssl, response, BUFSIZE);
+    switch(SSL_get_error(ssl,r)){
+      case SSL_ERROR_NONE:
+        return;
+      case SSL_ERROR_ZERO_RETURN:
+        r = SSL_shutdown(ssl);
+        switch(r){
+          case 1:
+            break;
+          default:
+            berr_exit("SSL shutdown failed");
+        }
+      case SSL_ERROR_SYSCALL:
+        berr_exit(FMT_INCORRECT_CLOSE);
+      default:
+          berr_exit("SSL read problem");
+    }
+  }
 }

@@ -1,0 +1,7 @@
+#Jason Qian, 1000624256, e-mail j.qian@mail.utoronto.ca
+#Tzu-An Chen, 1000538411, e-mail bruce.chen@mail.utoronto.ca
+
+In client, we initialize SSL object with previous context, bind sbio to the SSL object, and try ssl_connect to the server. 
+In server we initialize a new SSL object in every fork, bind sbio to the SSL object and ready to accept SSL connection from client. 
+After the connection is established, both client and server check the certificate, if checking certificate is successful, we start ssl_read/ ssl_write in server and client. 
+Client will start ssl_write the question, while server will ssl_read the question from the client. When server receives the question, it will use ssl_write to write the answer to the client.

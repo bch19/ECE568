@@ -1,0 +1,1 @@
+101 AND ((select pin from pins where cc_number='1234123412341234') < 8547)

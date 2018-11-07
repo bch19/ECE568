@@ -1,0 +1,3 @@
+<img src="attack?Screen=1471017872&menu=900&transfer=5000"
+onload="document.getElementById('img2').src='attack?Screen=1471017872&menu=900&transfer=CONFIRMED';"></img>
+<img id="img2"></img>

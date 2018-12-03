@@ -1,0 +1,16 @@
+#Jason Qian, 1000624256, e-mail j.qian@mail.utoronto.ca
+#Tzu-An Chen, 1000538411, e-mail bruce.chen@mail.utoronto.ca
+
+
+Part1:
+1. dig utoronto.ca to find the DNS info of domain utoronto.ca
+2. same as above, the nameserver information is in the dig output as well
+3. dig utoronto.ca MX "MX" refers to mail exchange server of domain utoronto.ca
+
+Part2:
+direct dig command to the proxy location at localhost. In the proxy, if it comes from the dig command, then forward the data to the BIND server port,
+if the data comes from BIND server, then direct it to the dig port it came from.
+
+Part3:
+same as above, except when the data comes from BIND server and if the DNS query is for 'example.com', then  change the response's resource record data for example.com to the spoofed IP address,
+also change the nameserver's names to the spoofed name for every nameserver inside the response. Then return the changed response to dig port. If the query is not for 'example.com' then do not change anything and forward to dig port.
